@@ -41,6 +41,7 @@ var hubDefaultSubnet    = '10.0.0.0/26'
 var hubGwSubnet         = '10.0.0.64/26'
 var hubFwSubnet         = '10.0.0.128/26'
 var hubBastionSubnet    = '10.0.0.192/26'
+var hubFwMgmtSubnet     = '10.0.1.0/26'
 var spoke01Subnet       = '10.0.2.0/24'
 var spoke02Subnet       = '10.0.3.0/24'
 var onpremDefaultSubnet = '192.168.0.0/26'
@@ -173,6 +174,10 @@ resource hubVnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
       {
         name: 'AzureBastionSubnet'
         properties: { addressPrefix: hubBastionSubnet }
+      }
+      {
+        name: 'AzureFirewallManagementSubnet'
+        properties: { addressPrefix: hubFwMgmtSubnet }
       }
     ]
   }
@@ -319,6 +324,13 @@ resource hubPip2 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
 
 resource firewallPip 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
   name: 'pip-azure-firewall'
+  location: location
+  sku: { name: 'Standard' }
+  properties: { publicIPAllocationMethod: 'Static' }
+}
+
+resource firewallMgmtPip 'Microsoft.Network/publicIPAddresses@2023-09-01' = {
+  name: 'pip-azure-firewall-mgmt'
   location: location
   sku: { name: 'Standard' }
   properties: { publicIPAllocationMethod: 'Static' }
@@ -485,6 +497,13 @@ resource firewall 'Microsoft.Network/azureFirewalls@2023-09-01' = {
         }
       }
     ]
+    managementIpConfiguration: {
+      name: 'FW-mgmt-config'
+      properties: {
+        subnet: { id: '${hubVnet.id}/subnets/AzureFirewallManagementSubnet' }
+        publicIPAddress: { id: firewallMgmtPip.id }
+      }
+    }
   }
   dependsOn: [firewallPolicyRules]
 }
@@ -787,6 +806,7 @@ resource vmOnprem 'Microsoft.Compute/virtualMachines@2023-09-01' = {
 // ============================================================
 
 output firewallPrivateIp string = firewall.properties.ipConfigurations[0].properties.privateIPAddress
+output firewallMgmtPublicIp string = firewallMgmtPip.properties.ipAddress
 output hubGwPip1 string = hubPip1.properties.ipAddress
 output hubGwPip2 string = hubPip2.properties.ipAddress
 output onpremGwPip1 string = onpremPip1.properties.ipAddress

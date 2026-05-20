@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "16633366684434522319"
+      "templateHash": "12771406974429107726"
     }
   },
   "parameters": {
@@ -39,6 +39,7 @@
     "hubGwSubnet": "10.0.0.64/26",
     "hubFwSubnet": "10.0.0.128/26",
     "hubBastionSubnet": "10.0.0.192/26",
+    "hubFwMgmtSubnet": "10.0.1.0/26",
     "spoke01Subnet": "10.0.2.0/24",
     "spoke02Subnet": "10.0.3.0/24",
     "onpremDefaultSubnet": "192.168.0.0/26",
@@ -174,6 +175,12 @@
             "name": "AzureBastionSubnet",
             "properties": {
               "addressPrefix": "[variables('hubBastionSubnet')]"
+            }
+          },
+          {
+            "name": "AzureFirewallManagementSubnet",
+            "properties": {
+              "addressPrefix": "[variables('hubFwMgmtSubnet')]"
             }
           }
         ]
@@ -390,6 +397,18 @@
       "type": "Microsoft.Network/publicIPAddresses",
       "apiVersion": "2023-09-01",
       "name": "pip-azure-firewall",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static"
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-09-01",
+      "name": "pip-azure-firewall-mgmt",
       "location": "[parameters('location')]",
       "sku": {
         "name": "Standard"
@@ -621,9 +640,21 @@
               }
             }
           }
-        ]
+        ],
+        "managementIpConfiguration": {
+          "name": "FW-mgmt-config",
+          "properties": {
+            "subnet": {
+              "id": "[format('{0}/subnets/AzureFirewallManagementSubnet', resourceId('Microsoft.Network/virtualNetworks', 'Hub01'))]"
+            },
+            "publicIPAddress": {
+              "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'pip-azure-firewall-mgmt')]"
+            }
+          }
+        }
       },
       "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', 'pip-azure-firewall-mgmt')]",
         "[resourceId('Microsoft.Network/publicIPAddresses', 'pip-azure-firewall')]",
         "[resourceId('Microsoft.Network/firewallPolicies', 'fw-policy-hub01')]",
         "[resourceId('Microsoft.Network/firewallPolicies/ruleCollectionGroups', 'fw-policy-hub01', 'DefaultRuleCollectionGroup')]",
@@ -1066,6 +1097,10 @@
     "firewallPrivateIp": {
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Network/azureFirewalls', 'fw-hub01'), '2023-09-01').ipConfigurations[0].properties.privateIPAddress]"
+    },
+    "firewallMgmtPublicIp": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-azure-firewall-mgmt'), '2023-09-01').ipAddress]"
     },
     "hubGwPip1": {
       "type": "string",
