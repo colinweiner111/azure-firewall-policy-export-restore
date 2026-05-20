@@ -147,6 +147,24 @@ resource rtSpoke02 'Microsoft.Network/routeTables@2023-09-01' = {
   }
 }
 
+// Required: management subnet must have an explicit 0.0.0.0/0 → Internet route
+resource rtFwMgmt 'Microsoft.Network/routeTables@2023-09-01' = {
+  name: 'rt-fw-mgmt'
+  location: location
+  properties: {
+    disableBgpRoutePropagation: false
+    routes: [
+      {
+        name: 'mgmt-to-internet'
+        properties: {
+          addressPrefix: '0.0.0.0/0'
+          nextHopType: 'Internet'
+        }
+      }
+    ]
+  }
+}
+
 // ============================================================
 // Virtual Networks
 // ============================================================
@@ -177,7 +195,10 @@ resource hubVnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
       }
       {
         name: 'AzureFirewallManagementSubnet'
-        properties: { addressPrefix: hubFwMgmtSubnet }
+        properties: {
+          addressPrefix: hubFwMgmtSubnet
+          routeTable: { id: rtFwMgmt.id }
+        }
       }
     ]
   }
