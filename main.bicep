@@ -152,7 +152,7 @@ resource rtFwMgmt 'Microsoft.Network/routeTables@2023-09-01' = {
   name: 'rt-fw-mgmt'
   location: location
   properties: {
-    disableBgpRoutePropagation: false
+    disableBgpRoutePropagation: true
     routes: [
       {
         name: 'mgmt-to-internet'

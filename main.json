@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "7905354521725141927"
+      "templateHash": "15529644855383630021"
     }
   },
   "parameters": {
@@ -147,7 +147,7 @@
       "name": "rt-fw-mgmt",
       "location": "[parameters('location')]",
       "properties": {
-        "disableBgpRoutePropagation": false,
+        "disableBgpRoutePropagation": true,
         "routes": [
           {
             "name": "mgmt-to-internet",
