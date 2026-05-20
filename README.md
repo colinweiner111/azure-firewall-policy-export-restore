@@ -1,6 +1,6 @@
-# Azure Hub-Spoke Network Infrastructure
+# Azure Hub-Spoke Network Infrastructure (with Firewall Management Interface)
 
-Deploys a complete hub-and-spoke Azure network topology using Bicep. Includes a central hub with Azure Firewall, Azure Bastion, and Active/Active VPN gateways, two spoke VNets, and a simulated on-premises environment — all wired together with BGP-enabled Site-to-Site IPSec connections.
+Deploys a complete hub-and-spoke Azure network topology using Bicep. Includes a central hub with Azure Firewall Premium (with dedicated management interface), Azure Bastion, and Active/Active VPN gateways, two spoke VNets, and a simulated on-premises environment — all wired together with BGP-enabled Site-to-Site IPSec connections.
 
 ## Architecture
 
@@ -29,6 +29,7 @@ The topology connects four networks:
 | GatewaySubnet | 10.0.0.64/26 |
 | AzureFirewallSubnet | 10.0.0.128/26 |
 | AzureBastionSubnet | 10.0.0.192/26 |
+| AzureFirewallManagementSubnet | 10.0.1.0/26 |
 
 ### Resources Deployed
 
@@ -37,7 +38,7 @@ The topology connects four networks:
 | Hub VPN Gateway | VpnGw1AZ, Active/Active, BGP ASN 65509 |
 | OnPrem VPN Gateway | VpnGw1AZ, Active/Active, BGP ASN 65510 |
 | VPN Connections | 4x IPSec with BGP (full active/active mesh) |
-| Azure Firewall | Premium, allow-all rule (lab use) |
+| Azure Firewall | Premium, allow-all rule (lab use), dedicated management interface |
 | Azure Bastion | Standard |
 | VMs | 3x Ubuntu 22.04, Standard_B1s |
 
@@ -60,8 +61,8 @@ The topology connects four networks:
 ### Clone the repo
 
 ```powershell
-git clone https://github.com/colinweiner111/azure-hub-and-spoke.git
-cd azure-hub-and-spoke
+git clone https://github.com/colinweiner111/azure-hub-and-spoke-fw-mgmt.git
+cd azure-hub-and-spoke-fw-mgmt
 ```
 
 ### Deploy
@@ -109,6 +110,7 @@ After deployment completes, the script prints:
 | Output | Description |
 |---|---|
 | `firewallPrivateIp` | Azure Firewall private IP (used as next hop in route tables) |
+| `firewallMgmtPublicIp` | Azure Firewall dedicated management public IP |
 | `bastionPublicIp` | Azure Bastion public IP |
 | `hubGwPip1` / `hubGwPip2` | Hub VPN Gateway public IPs |
 | `onpremGwPip1` / `onpremGwPip2` | OnPrem VPN Gateway public IPs |
