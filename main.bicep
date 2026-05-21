@@ -823,6 +823,171 @@ resource vmOnprem 'Microsoft.Compute/virtualMachines@2023-09-01' = {
 }
 
 // ============================================================
+// Log Analytics Workspace
+// ============================================================
+
+resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: 'log-hub-spoke-fw-mgmt'
+  location: location
+  properties: {
+    sku: { name: 'PerGB2018' }
+    retentionInDays: 30
+  }
+}
+
+// ============================================================
+// Diagnostic Settings — logAnalyticsDestinationType: Dedicated
+// uses resource-specific tables instead of AzureDiagnostics
+// ============================================================
+
+resource diagFirewall 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag-fw-hub01'
+  scope: firewall
+  properties: {
+    workspaceId: law.id
+    logAnalyticsDestinationType: 'Dedicated'
+    logs: [
+      {
+        category: 'AZFWApplicationRule'
+        enabled: true
+      }
+      {
+        category: 'AZFWNetworkRule'
+        enabled: true
+      }
+      {
+        category: 'AZFWNatRule'
+        enabled: true
+      }
+      {
+        category: 'AZFWThreatIntel'
+        enabled: true
+      }
+      {
+        category: 'AZFWIdpsSignature'
+        enabled: true
+      }
+      {
+        category: 'AZFWDnsQuery'
+        enabled: true
+      }
+      {
+        category: 'AZFWFqdnResolveFailure'
+        enabled: true
+      }
+      {
+        category: 'AZFWApplicationRuleAggregation'
+        enabled: true
+      }
+      {
+        category: 'AZFWNetworkRuleAggregation'
+        enabled: true
+      }
+      {
+        category: 'AZFWNatRuleAggregation'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
+  }
+}
+
+resource diagHubVpnGw 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag-vng-hub01'
+  scope: hubVpnGw
+  properties: {
+    workspaceId: law.id
+    logAnalyticsDestinationType: 'Dedicated'
+    logs: [
+      { category: 'GatewayDiagnosticLog', enabled: true }
+      { category: 'TunnelDiagnosticLog',  enabled: true }
+      { category: 'RouteDiagnosticLog',   enabled: true }
+      { category: 'IKEDiagnosticLog',     enabled: true }
+    ]
+    metrics: [
+      { category: 'AllMetrics', enabled: true }
+    ]
+  }
+}
+
+resource diagOnpremVpnGw 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag-vng-onprem01'
+  scope: onpremVpnGw
+  properties: {
+    workspaceId: law.id
+    logAnalyticsDestinationType: 'Dedicated'
+    logs: [
+      { category: 'GatewayDiagnosticLog', enabled: true }
+      { category: 'TunnelDiagnosticLog',  enabled: true }
+      { category: 'RouteDiagnosticLog',   enabled: true }
+      { category: 'IKEDiagnosticLog',     enabled: true }
+    ]
+    metrics: [
+      { category: 'AllMetrics', enabled: true }
+    ]
+  }
+}
+
+resource diagBastion 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag-bastion-hub01'
+  scope: bastion
+  properties: {
+    workspaceId: law.id
+    logAnalyticsDestinationType: 'Dedicated'
+    logs: [
+      { category: 'BastionAuditLogs', enabled: true }
+    ]
+    metrics: [
+      { category: 'AllMetrics', enabled: true }
+    ]
+  }
+}
+
+resource diagNsgSpoke01 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag-nsg-spoke01'
+  scope: nsgSpoke01
+  properties: {
+    workspaceId: law.id
+    logAnalyticsDestinationType: 'Dedicated'
+    logs: [
+      { category: 'NetworkSecurityGroupEvent',       enabled: true }
+      { category: 'NetworkSecurityGroupRuleCounter', enabled: true }
+    ]
+  }
+}
+
+resource diagNsgSpoke02 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag-nsg-spoke02'
+  scope: nsgSpoke02
+  properties: {
+    workspaceId: law.id
+    logAnalyticsDestinationType: 'Dedicated'
+    logs: [
+      { category: 'NetworkSecurityGroupEvent',       enabled: true }
+      { category: 'NetworkSecurityGroupRuleCounter', enabled: true }
+    ]
+  }
+}
+
+resource diagNsgOnprem 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'diag-nsg-onprem'
+  scope: nsgOnprem
+  properties: {
+    workspaceId: law.id
+    logAnalyticsDestinationType: 'Dedicated'
+    logs: [
+      { category: 'NetworkSecurityGroupEvent',       enabled: true }
+      { category: 'NetworkSecurityGroupRuleCounter', enabled: true }
+    ]
+  }
+}
+
+// ============================================================
 // Outputs
 // ============================================================
 
@@ -833,3 +998,4 @@ output hubGwPip2 string = hubPip2.properties.ipAddress
 output onpremGwPip1 string = onpremPip1.properties.ipAddress
 output onpremGwPip2 string = onpremPip2.properties.ipAddress
 output bastionPublicIp string = bastionPip.properties.ipAddress
+output logAnalyticsWorkspaceId string = law.id
