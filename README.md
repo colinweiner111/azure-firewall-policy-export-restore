@@ -2,6 +2,8 @@
 
 PowerShell scripts to export an Azure Firewall Policy and all Rule Collection Groups to a timestamped snapshot, then restore from any export with dry-run support. Designed so a customer can capture the current state before making rule changes and restore in minutes if something goes wrong.
 
+> **Note:** This is a operational safety net for environments where firewall rules are still managed manually. It is not a replacement for Infrastructure as Code (IaC). If you are moving towards Bicep or Terraform, the JSON exports produced by these scripts can serve as a starting point for building your IaC definitions.
+
 ## How it works
 
 `Backup-FirewallPolicy.ps1` exports the full policy and each Rule Collection Group as ARM JSON into a timestamped folder. `Restore-FirewallPolicy.ps1` reads that snapshot, verifies file integrity, and PUTs each resource back in priority order — waiting for each ARM operation to complete before moving to the next.
@@ -68,7 +70,7 @@ Each snapshot contains:
 | `policy.json` | Full ARM export of the firewall policy |
 | `rcg-<name>.json` | One file per Rule Collection Group |
 
-## Roll back to a snapshot
+## Restore from a snapshot
 
 **Step 1 — dry-run (no write/mutating API calls, shows exactly what will change):**
 
@@ -89,7 +91,7 @@ Each snapshot contains:
     -SnapshotPath      .\backups\2024-01-15T14-30-00Z
 ```
 
-**Full rollback — restore snapshot exactly, delete any RCGs added since the snapshot:**
+**Full restore — match snapshot exactly, delete any RCGs added since the export:**
 
 ```powershell
 .\Restore-FirewallPolicy.ps1 `
@@ -118,9 +120,24 @@ Each snapshot contains:
 | `PolicyName` | Yes | — | Firewall policy name |
 | `SnapshotPath` | Yes | — | Path to the timestamped snapshot folder |
 | `SubscriptionId` | No | Current Az context | Azure subscription ID |
-| `-WhatIf` | No | — | Show planned changes, make no write/mutating API calls |
+| `-WhatIf` | No | — | Dry run — shows what would be applied without executing any changes |
 | `-Force` | No | — | Skip all confirmation prompts (pipeline-safe) |
 | `-Strict` | No | — | Also delete RCGs present in live but not in snapshot |
+
+## Relation to Infrastructure as Code
+
+These scripts are a safety net and a stepping stone — not a replacement for IaC.
+
+| Stage | Approach |
+|---|---|
+| 1 | Manual changes in the portal, no safety net |
+| 2 | Manual changes + export/restore ← **this repo** |
+| 3 | Changes via Bicep or Terraform, policy defined in source control |
+| 4 | IaC + CI/CD pipeline, every change is a reviewed PR |
+
+The export/restore scripts remain useful even at stage 3 and 4 — IaC defines what *should* be deployed, but if someone makes an out-of-band change in the portal the export captures what's *actually* running so you can compare and reconcile.
+
+The JSON files produced by `Backup-FirewallPolicy.ps1` are valid ARM format and can serve as a starting point for writing Bicep or Terraform — useful if you're building IaC from an existing live policy rather than from scratch.
 
 ## Known limitations
 

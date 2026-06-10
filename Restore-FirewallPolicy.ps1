@@ -227,7 +227,7 @@ if ($rcgsToDelete.Count -gt 0) {
 }
 
 if ($WhatIf) {
-    Write-Host "`n[WhatIf] No changes made.`n" -ForegroundColor Cyan
+    Write-Host "`n[WhatIf] Dry run complete — the plan above shows what would be applied. Re-run without -WhatIf to execute.`n" -ForegroundColor Cyan
     exit 0
 }
 
