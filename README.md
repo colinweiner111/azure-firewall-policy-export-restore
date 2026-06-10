@@ -1,4 +1,4 @@
-# Azure Firewall Policy Export and Restore
+# Azure Firewall Policy Export and Rollback
 
 PowerShell scripts to export an Azure Firewall Policy and all Rule Collection Groups to a timestamped snapshot, then roll back from any snapshot with dry-run support. Designed so a customer can capture the current state before making rule changes and roll back in minutes if something goes wrong.
 
@@ -17,7 +17,7 @@ PowerShell scripts to export an Azure Firewall Policy and all Rule Collection Gr
 | Primary backup / disaster recovery strategy | **No** — this is a safety net, not a DR tool |
 | Backing up the firewall infrastructure itself (VNet, public IP, etc.) | **No** — rules only |
 | Environments where rules are already managed by Bicep or Terraform | **No** — use source control and your IaC pipeline instead |
-| You need transactional consistency across all rules | **No** — restore applies one RCG at a time; the firewall stays live throughout |
+| You need transactional consistency across all rules | **No** — rollback applies one RCG at a time; the firewall stays live throughout |
 
 ## How it works
 
