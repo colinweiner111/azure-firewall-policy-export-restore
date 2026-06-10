@@ -37,10 +37,21 @@
     Delete Rule Collection Groups present in live but absent from the snapshot.
     Prompts before each deletion unless -Force is also set.
 
+.PARAMETER Diff
+    When combined with -WhatIf, fetches each live Rule Collection Group and shows a rule-level
+    diff: [+] rules in the snapshot absent from live (will be restored), [-] rules in live
+    absent from the snapshot (will be removed), [~] rules present in both but with changed
+    content. Adds one GET per RCG. Has no effect without -WhatIf.
+
 .EXAMPLE
     # Dry-run: see what would change without touching anything
     .\Restore-FirewallPolicy.ps1 -ResourceGroupName rg-hub-spoke-demo -PolicyName fw-policy-hub01 `
         -SnapshotPath .\backups\2024-01-15T14-30-00Z -WhatIf
+
+.EXAMPLE
+    # Dry-run with rule-level diff — see exactly which rules would change
+    .\Restore-FirewallPolicy.ps1 -ResourceGroupName rg-hub-spoke-demo -PolicyName fw-policy-hub01 `
+        -SnapshotPath .\backups\2024-01-15T14-30-00Z -WhatIf -Diff
 
 .EXAMPLE
     # Interactive restore with a single confirmation prompt
@@ -65,7 +76,8 @@ param(
     [string]$SubscriptionId,
     [switch]$WhatIf,
     [switch]$Force,
-    [switch]$Strict
+    [switch]$Strict,
+    [switch]$Diff
 )
 
 Set-StrictMode -Version Latest
@@ -116,6 +128,70 @@ function Wait-Provisioned {
         Start-Sleep -Seconds 10
     }
     Fail "Timed out (${TimeoutSec}s) waiting for $Label."
+}
+
+# Compares snapshot vs live RCG at the rule level and prints [+]/[-]/[~] lines.
+# Called only when -WhatIf -Diff are both set.
+function Show-RcgDiff {
+    param([PSCustomObject]$SnapRcg, [PSCustomObject]$LiveRcg)
+
+    $snapCols = @{}
+    if ($SnapRcg.properties.ruleCollections) {
+        foreach ($rc in $SnapRcg.properties.ruleCollections) { $snapCols[$rc.name] = $rc }
+    }
+    $liveCols = @{}
+    if ($LiveRcg -and $LiveRcg.properties.ruleCollections) {
+        foreach ($rc in $LiveRcg.properties.ruleCollections) { $liveCols[$rc.name] = $rc }
+    }
+
+    $allColNames = (@($snapCols.Keys) + @($liveCols.Keys) | Select-Object -Unique | Sort-Object)
+    $anyChange = $false
+
+    foreach ($colName in $allColNames) {
+        $sCol = $snapCols[$colName]
+        $lCol = $liveCols[$colName]
+
+        if ($sCol -and -not $lCol) {
+            Write-Host "      Collection: $colName  [new collection — all rules will be created]" -ForegroundColor Green
+            if ($sCol.rules) { foreach ($r in $sCol.rules) { Write-Host "        [+] $($r.name)" -ForegroundColor Green } }
+            $anyChange = $true
+            continue
+        }
+        if (-not $sCol -and $lCol) {
+            Write-Host "      Collection: $colName  [collection will be removed]" -ForegroundColor Red
+            if ($lCol.rules) { foreach ($r in $lCol.rules) { Write-Host "        [-] $($r.name)" -ForegroundColor Red } }
+            $anyChange = $true
+            continue
+        }
+
+        $snapRules = @{}
+        if ($sCol.rules) { foreach ($r in $sCol.rules) { $snapRules[$r.name] = $r } }
+        $liveRules = @{}
+        if ($lCol.rules) { foreach ($r in $lCol.rules) { $liveRules[$r.name] = $r } }
+
+        $colLines = @()
+        foreach ($ruleName in (@($snapRules.Keys) + @($liveRules.Keys) | Select-Object -Unique | Sort-Object)) {
+            $sRule = $snapRules[$ruleName]
+            $lRule = $liveRules[$ruleName]
+            if ($sRule -and -not $lRule) {
+                $colLines += [pscustomobject]@{ Tag = '[+]'; Name = $ruleName; Color = 'Green' }
+            } elseif (-not $sRule -and $lRule) {
+                $colLines += [pscustomobject]@{ Tag = '[-]'; Name = $ruleName; Color = 'Red' }
+            } else {
+                if (($sRule | ConvertTo-Json -Depth 10 -Compress) -ne ($lRule | ConvertTo-Json -Depth 10 -Compress)) {
+                    $colLines += [pscustomobject]@{ Tag = '[~]'; Name = $ruleName; Color = 'Yellow' }
+                }
+            }
+        }
+
+        if ($colLines.Count -gt 0) {
+            Write-Host "      Collection: $colName"
+            foreach ($line in $colLines) { Write-Host "        $($line.Tag) $($line.Name)" -ForegroundColor $line.Color }
+            $anyChange = $true
+        }
+    }
+
+    if (-not $anyChange) { Write-Host '      (no rule changes detected)' -ForegroundColor DarkGray }
 }
 
 # Polls until the resource returns 404 — needed after async DELETE (202) to avoid stale post-restore output.
@@ -226,8 +302,38 @@ if ($rcgsToDelete.Count -gt 0) {
     }
 }
 
+if ($WhatIf -and $Diff) {
+    Write-Host "`nRule-level diff  ([+] in snapshot / will be restored   [-] in live only / will be removed   [~] modified):" -ForegroundColor Yellow
+
+    foreach ($rcgEntry in ($manifest.ruleCollectionGroups | Sort-Object { $_.priority })) {
+        $rcgName = $rcgEntry.name
+        $action  = if ($rcgName -in $liveRcgNames) { 'UPDATE' } else { 'CREATE' }
+        Write-Host "`n    [$action]  $rcgName" -ForegroundColor Cyan
+
+        $snapRcg = Get-Content (Join-Path $SnapshotPath $rcgEntry.file) -Encoding UTF8 | ConvertFrom-Json
+
+        if ($rcgName -in $liveRcgNames) {
+            $liveRcgResp = Invoke-AzRestMethod -Path "${base}/ruleCollectionGroups/${rcgName}?api-version=${apiVer}" -Method GET
+            if ($liveRcgResp.StatusCode -ne 200) {
+                Write-Host "      [!] Could not fetch live RCG (HTTP $($liveRcgResp.StatusCode)) — skipping diff." -ForegroundColor DarkYellow
+                continue
+            }
+            Show-RcgDiff -SnapRcg $snapRcg -LiveRcg ($liveRcgResp.Content | ConvertFrom-Json)
+        } else {
+            Write-Host '      [New RCG — all collections and rules will be created]' -ForegroundColor Green
+            if ($snapRcg.properties.ruleCollections) {
+                foreach ($rc in $snapRcg.properties.ruleCollections) {
+                    Write-Host "      Collection: $($rc.name)"
+                    if ($rc.rules) { foreach ($r in $rc.rules) { Write-Host "        [+] $($r.name)" -ForegroundColor Green } }
+                }
+            }
+        }
+    }
+    Write-Host ''
+}
+
 if ($WhatIf) {
-    Write-Host "`n[WhatIf] Dry run complete — the plan above shows what would be applied. Re-run without -WhatIf to execute.`n" -ForegroundColor Cyan
+    Write-Host "[WhatIf] Dry run complete — the plan above shows what would be applied. Re-run without -WhatIf to execute.`n" -ForegroundColor Cyan
     exit 0
 }
 

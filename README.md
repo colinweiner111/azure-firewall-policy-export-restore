@@ -82,6 +82,16 @@ Each snapshot contains:
     -WhatIf
 ```
 
+Add `-Diff` to see per-rule changes (`[+]` will be restored, `[-]` will be removed, `[~]` modified):
+
+```powershell
+.\Restore-FirewallPolicy.ps1 `
+    -ResourceGroupName rg-hub-spoke-demo `
+    -PolicyName        fw-policy-hub01 `
+    -SnapshotPath      .\backups\2024-01-15T14-30-00Z `
+    -WhatIf -Diff
+```
+
 **Step 2 — interactive restore (single confirmation prompt):**
 
 ```powershell
@@ -121,6 +131,7 @@ Each snapshot contains:
 | `SnapshotPath` | Yes | — | Path to the timestamped snapshot folder |
 | `SubscriptionId` | No | Current Az context | Azure subscription ID |
 | `-WhatIf` | No | — | Dry run — shows what would be applied without executing any changes |
+| `-Diff` | No | — | With `-WhatIf`: fetches live RCGs and shows per-rule changes (`[+]` restored, `[-]` removed, `[~]` modified) |
 | `-Force` | No | — | Skip all confirmation prompts (pipeline-safe) |
 | `-Strict` | No | — | Also delete RCGs present in live but not in snapshot |
 
