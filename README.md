@@ -72,17 +72,7 @@ Each snapshot contains:
 
 ## Restore from a snapshot
 
-**Step 1 — dry-run (no write/mutating API calls, shows exactly what will change):**
-
-```powershell
-.\Restore-FirewallPolicy.ps1 `
-    -ResourceGroupName rg-hub-spoke-demo `
-    -PolicyName        fw-policy-hub01 `
-    -SnapshotPath      .\backups\2024-01-15T14-30-00Z `
-    -WhatIf
-```
-
-Add `-Diff` to see per-rule changes (`[+]` will be restored, `[-]` will be removed, `[~]` modified):
+**Step 1 — dry-run (shows exactly which rules would be restored, removed, or modified):**
 
 ```powershell
 .\Restore-FirewallPolicy.ps1 `
