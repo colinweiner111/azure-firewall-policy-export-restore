@@ -150,7 +150,9 @@ The JSON files produced by `Backup-FirewallPolicy.ps1` are valid ARM format and 
 
 ## Lab environment
 
-`main.bicep` and `deploy.ps1` deploy a hub-spoke Azure network topology with Azure Firewall Premium — used to test these backup/restore scripts against a real policy and rule set.
+`main.bicep` and `deploy.ps1` deploy a minimal Azure Firewall Premium environment with a sample policy and rule set — enough to test the backup/restore scripts without the cost and wait time of a full hub-spoke topology.
+
+Deploys: one VNet, one Azure Firewall Premium, one Firewall Policy with network and application rule collections. No VMs, no VPN gateways, no Bastion. Takes approximately 5–10 minutes.
 
 ### Additional requirements for deployment
 
@@ -160,18 +162,14 @@ The JSON files produced by `Backup-FirewallPolicy.ps1` are valid ARM format and 
 ### Deploy
 
 ```powershell
-.\deploy.ps1 -ResourceGroupName rg-hub-spoke-demo
+.\deploy.ps1 -ResourceGroupName rg-fw-lab
 ```
-
-The script prompts for a VM admin password. Deployment takes approximately 30–45 minutes, dominated by the VPN gateway provisioning.
 
 | Parameter | Required | Default | Description |
 |---|---|---|---|
 | `ResourceGroupName` | Yes | — | Resource group to deploy into (created if needed) |
 | `SubscriptionId` | No | Current CLI subscription | Azure subscription ID |
 | `Location` | No | `centralus` | Azure region |
-| `AdminUsername` | No | `azureuser` | VM administrator username |
-| `AdminPassword` | No | Prompted | VM administrator password |
 
 ## License
 
