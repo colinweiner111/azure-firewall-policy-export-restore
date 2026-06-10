@@ -70,7 +70,7 @@ resource firewallPolicyRules 'Microsoft.Network/firewallPolicies/ruleCollectionG
             ruleType: 'NetworkRule'
             name: 'Allow-DNS'
             description: 'Allow DNS to Azure DNS resolver'
-            sourceAddresses: ['10.0.0.0/8']
+            sourceAddresses: ['10.0.0.0/24']
             destinationAddresses: ['168.63.129.16']
             destinationPorts: ['53']
             ipProtocols: ['UDP', 'TCP']
@@ -79,28 +79,10 @@ resource firewallPolicyRules 'Microsoft.Network/firewallPolicies/ruleCollectionG
             ruleType: 'NetworkRule'
             name: 'Allow-NTP'
             description: 'Allow NTP outbound'
-            sourceAddresses: ['10.0.0.0/8']
+            sourceAddresses: ['10.0.0.0/24']
             destinationAddresses: ['*']
             destinationPorts: ['123']
             ipProtocols: ['UDP']
-          }
-          {
-            ruleType: 'NetworkRule'
-            name: 'Allow-Spoke-to-Spoke'
-            description: 'Allow inter-spoke traffic via firewall'
-            sourceAddresses: ['10.0.2.0/24', '10.0.3.0/24']
-            destinationAddresses: ['10.0.2.0/24', '10.0.3.0/24']
-            destinationPorts: ['*']
-            ipProtocols: ['Any']
-          }
-          {
-            ruleType: 'NetworkRule'
-            name: 'Allow-OnPrem-SSH'
-            description: 'Allow SSH from onprem to spoke VMs'
-            sourceAddresses: ['192.168.0.0/24']
-            destinationAddresses: ['10.0.2.0/24', '10.0.3.0/24']
-            destinationPorts: ['22']
-            ipProtocols: ['TCP']
           }
         ]
       }
@@ -118,7 +100,7 @@ resource firewallPolicyRules 'Microsoft.Network/firewallPolicies/ruleCollectionG
             ruleType: 'ApplicationRule'
             name: 'Allow-WindowsUpdate'
             description: 'Allow Windows Update endpoints'
-            sourceAddresses: ['10.0.0.0/8']
+            sourceAddresses: ['10.0.0.0/24']
             protocols: [
               { protocolType: 'Https', port: 443 }
               { protocolType: 'Http', port: 80 }
@@ -129,7 +111,7 @@ resource firewallPolicyRules 'Microsoft.Network/firewallPolicies/ruleCollectionG
             ruleType: 'ApplicationRule'
             name: 'Allow-MicrosoftServices'
             description: 'Allow Microsoft update and telemetry FQDNs'
-            sourceAddresses: ['10.0.0.0/8']
+            sourceAddresses: ['10.0.0.0/24']
             protocols: [
               { protocolType: 'Https', port: 443 }
             ]
@@ -143,7 +125,7 @@ resource firewallPolicyRules 'Microsoft.Network/firewallPolicies/ruleCollectionG
             ruleType: 'ApplicationRule'
             name: 'Allow-UbuntuAptRepos'
             description: 'Allow Ubuntu package manager repositories'
-            sourceAddresses: ['10.0.0.0/8']
+            sourceAddresses: ['10.0.0.0/24']
             protocols: [
               { protocolType: 'Https', port: 443 }
               { protocolType: 'Http', port: 80 }
