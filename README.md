@@ -4,6 +4,19 @@ PowerShell scripts to export an Azure Firewall Policy and all Rule Collection Gr
 
 > **Note:** This is a operational safety net for environments where firewall rules are still managed manually. It is not a replacement for Infrastructure as Code (IaC). If you are moving towards Bicep or Terraform, the JSON exports produced by these scripts can serve as a starting point for building your IaC definitions.
 
+## When to use this
+
+| Situation | Use it? |
+|---|---|
+| About to make manual rule changes in the portal or via CLI | **Yes** — snapshot first |
+| Handing off a firewall to another team — document its current state | **Yes** |
+| A rule change caused a connectivity issue and you need to roll back fast | **Yes** |
+| Testing new rules in a dev/test firewall before promoting to prod | **Yes** |
+| Primary backup / disaster recovery strategy | **No** — this is a safety net, not a DR tool |
+| Backing up the firewall infrastructure itself (VNet, public IP, etc.) | **No** — rules only |
+| Environments where rules are already managed by Bicep or Terraform | **No** — use source control and your IaC pipeline instead |
+| You need transactional consistency across all rules | **No** — restore applies one RCG at a time; the firewall stays live throughout |
+
 ## How it works
 
 `Backup-FirewallPolicy.ps1` exports the full policy and each Rule Collection Group as ARM JSON into a timestamped folder. `Restore-FirewallPolicy.ps1` reads that snapshot, verifies file integrity, and PUTs each resource back in priority order — waiting for each ARM operation to complete before moving to the next.
@@ -62,6 +75,32 @@ Run this before editing any firewall rules. The snapshot is saved to `backups/<t
     -PolicyName        fw-policy-hub01
 ```
 
+Sample output:
+
+```
+Checking Azure login...
+Subscription: Contoso Production (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+Fetching firewall policy 'fw-policy-hub01'...
+Snapshot directory: .\backups\2024-01-15T14-30-00Z
+Exporting rule collection groups...
+  -> contosoWeb-rcg01 (priority 500)
+  -> contosoOps-rcg01 (priority 600)
+  -> contosoOps-test-rcg02 (priority 700)
+  -> platform-all-wrkls-rcg01 (priority 800)
+
+Snapshot complete.
+  Location : .\backups\2024-01-15T14-30-00Z
+  Policy   : fw-policy-hub01 (Premium tier)
+  RCGs     : 4
+    - contosoWeb-rcg01        | priority 500 | 3 collection(s) | 10 rule(s)
+    - contosoOps-rcg01        | priority 600 | 2 collection(s) |  5 rule(s)
+    - contosoOps-test-rcg02   | priority 700 | 1 collection(s) |  3 rule(s)
+    - platform-all-wrkls-rcg01| priority 800 | 3 collection(s) | 14 rule(s)
+
+To restore this snapshot:
+  .\Restore-FirewallPolicy.ps1 -ResourceGroupName rg-fw-lab -PolicyName fw-policy-hub01 -SnapshotPath '.\backups\2024-01-15T14-30-00Z'
+```
+
 Each snapshot contains:
 
 | File | Contents |
@@ -82,6 +121,52 @@ Each snapshot contains:
     -WhatIf -Diff
 ```
 
+Sample output:
+
+```
+Checking Azure login...
+Subscription: Contoso Production (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+Loading snapshot manifest...
+  Snapshot : 2024-01-15T14-30-00Z
+  Captured : 2024-01-15T14:30:00.0000000Z
+Verifying snapshot integrity...
+  All files verified.
+Fetching live state...
+
+Restore plan  [WhatIf — no changes will be made]
+  Snapshot  : 2024-01-15T14-30-00Z
+  Source    : Contoso Production / rg-fw-lab
+  Target    : Contoso Production / rg-fw-lab / fw-policy-hub01
+
+  Policy settings will be overwritten from snapshot.
+
+  Rule Collection Groups:
+    [UPDATE]  contosoWeb-rcg01         |  priority 500  |  3 collection(s)  |  10 rule(s)
+    [UPDATE]  contosoOps-rcg01         |  priority 600  |  2 collection(s)  |   5 rule(s)
+    [UPDATE]  contosoOps-test-rcg02    |  priority 700  |  1 collection(s)  |   3 rule(s)
+    [UPDATE]  platform-all-wrkls-rcg01 |  priority 800  |  3 collection(s)  |  14 rule(s)
+
+Rule-level diff  ([+] in snapshot / will be restored   [-] in live only / will be removed   [~] modified):
+
+    [UPDATE]  contosoWeb-rcg01
+      Collection: contosoWeb-net-rc01
+        [-] Allow-AdminSSH-ContosoWeb
+        [~] Allow-App-to-SQL
+      Collection: contosoWeb-app-rc01
+        [+] Allow-PaymentGateway
+
+    [UPDATE]  contosoOps-rcg01
+      (no rule changes detected)
+
+    [UPDATE]  contosoOps-test-rcg02
+      (no rule changes detected)
+
+    [UPDATE]  platform-all-wrkls-rcg01
+      (no rule changes detected)
+
+[WhatIf] Dry run complete — the plan above shows what would be applied. Re-run without -WhatIf to execute.
+```
+
 **Step 2 — interactive restore (single confirmation prompt):**
 
 ```powershell
@@ -89,6 +174,50 @@ Each snapshot contains:
     -ResourceGroupName rg-hub-spoke-demo `
     -PolicyName        fw-policy-hub01 `
     -SnapshotPath      .\backups\2024-01-15T14-30-00Z
+```
+
+Sample output:
+
+```
+Restore plan
+  Snapshot  : 2024-01-15T14-30-00Z
+  Source    : Contoso Production / rg-fw-lab
+  Target    : Contoso Production / rg-fw-lab / fw-policy-hub01
+
+  Policy settings will be overwritten from snapshot.
+
+  Rule Collection Groups:
+    [UPDATE]  contosoWeb-rcg01         |  priority 500  |  3 collection(s)  |  10 rule(s)
+    [UPDATE]  contosoOps-rcg01         |  priority 600  |  2 collection(s)  |   5 rule(s)
+    [UPDATE]  contosoOps-test-rcg02    |  priority 700  |  1 collection(s)  |   3 rule(s)
+    [UPDATE]  platform-all-wrkls-rcg01 |  priority 800  |  3 collection(s)  |  14 rule(s)
+
+Proceed with restore? (yes/no): yes
+
+Restoring policy settings...
+  Policy settings restored.
+
+Restoring rule collection groups...
+  Updating 'contosoWeb-rcg01' (priority 500)...
+    Done.
+  Updating 'contosoOps-rcg01' (priority 600)...
+    Done.
+  Updating 'contosoOps-test-rcg02' (priority 700)...
+    Done.
+  Updating 'platform-all-wrkls-rcg01' (priority 800)...
+    Done.
+
+Post-restore verification...
+
+Restore complete.
+  Snapshot : 2024-01-15T14-30-00Z
+  Policy   : fw-policy-hub01
+
+  Live Rule Collection Groups after restore:
+    - contosoWeb-rcg01         | priority 500 | 3 collection(s) | 10 rule(s)
+    - contosoOps-rcg01         | priority 600 | 2 collection(s) |  5 rule(s)
+    - contosoOps-test-rcg02    | priority 700 | 1 collection(s) |  3 rule(s)
+    - platform-all-wrkls-rcg01 | priority 800 | 3 collection(s) | 14 rule(s)
 ```
 
 **Full restore — match snapshot exactly, delete any RCGs added since the export:**
