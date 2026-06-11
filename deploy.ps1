@@ -16,6 +16,9 @@
     .\deploy.ps1 -ResourceGroupName rg-fw-lab
 
 .EXAMPLE
+    .\deploy.ps1 -ResourceGroupName rg-fw-lab -SubscriptionId 00000000-0000-0000-0000-000000000000
+
+.EXAMPLE
     .\deploy.ps1 -ResourceGroupName rg-fw-lab -Location eastus
 #>
 param(
@@ -26,19 +29,21 @@ param(
     [string]$Location = 'centralus'
 )
 
+$azSubArgs = @()
 if ($SubscriptionId) {
-    Write-Host "Setting subscription to '$SubscriptionId'..." -ForegroundColor Cyan
-    az account set --subscription $SubscriptionId
+    $azSubArgs = @('--subscription', $SubscriptionId)
+    Write-Host "Using explicit subscription '$SubscriptionId' for all az commands..." -ForegroundColor Cyan
 }
 
-$sub = az account show --query "{name:name, id:id}" -o json | ConvertFrom-Json
+$sub = az account show @azSubArgs --query "{name:name, id:id}" -o json | ConvertFrom-Json
 Write-Host "Deploying into subscription: $($sub.name) ($($sub.id))" -ForegroundColor Cyan
 
 Write-Host "Creating resource group '$ResourceGroupName' in '$Location'..." -ForegroundColor Cyan
-az group create --name $ResourceGroupName --location $Location --output none
+az group create @azSubArgs --name $ResourceGroupName --location $Location --output none
 
 Write-Host "Deploying Bicep template (Azure Firewall takes ~5-10 min)..." -ForegroundColor Cyan
 az deployment group create `
+    @azSubArgs `
     --resource-group $ResourceGroupName `
     --template-file "$PSScriptRoot\main.bicep" `
     --parameters location=$Location `
@@ -46,6 +51,7 @@ az deployment group create `
 
 Write-Host "`nDeployment outputs:" -ForegroundColor Cyan
 az deployment group show `
+    @azSubArgs `
     --resource-group $ResourceGroupName `
     --name fw-lab-deploy `
     --query properties.outputs `

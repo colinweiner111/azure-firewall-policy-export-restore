@@ -6,6 +6,8 @@ PowerShell scripts to export an Azure Firewall Policy and all Rule Collection Gr
 
 > **Note:** This is an operational safety net for environments where firewall rules are still managed manually. It is not a replacement for Infrastructure as Code (IaC). If you are moving towards Bicep or Terraform, the JSON exports produced by these scripts can serve as a starting point for building your IaC definitions.
 
+Looking for the optional test lab deployment steps? Jump to [Lab environment quick start (optional)](#lab-environment-quick-start-optional).
+
 ## When to use this
 
 | Situation | Use it? |
@@ -314,14 +316,48 @@ Deploys: one VNet, one Azure Firewall Premium, one Firewall Policy with network 
 ### Deploy
 
 ```powershell
-.\deploy.ps1 -ResourceGroupName rg-fw-lab
+.\deploy.ps1 -ResourceGroupName rg-fw-lab -SubscriptionId <subscription-id>
 ```
+
+Passing `-SubscriptionId` is recommended so deployment does not depend on whichever Azure CLI subscription is currently active.
 
 | Parameter | Required | Default | Description |
 |---|---|---|---|
 | `ResourceGroupName` | Yes | — | Resource group to deploy into (created if needed) |
 | `SubscriptionId` | No | Current CLI subscription | Azure subscription ID |
 | `Location` | No | `centralus` | Azure region |
+
+### Lab environment quick start (optional)
+
+Use this to create the test firewall policy before running backup/rollback.
+
+1. Sign in to Azure CLI:
+
+```powershell
+az login
+```
+
+2. Choose the subscription ID you want to deploy into.
+
+3. Deploy the lab resources with explicit subscription:
+
+```powershell
+.\deploy.ps1 -ResourceGroupName rg-fw-lab -SubscriptionId <subscription-id>
+```
+
+4. Verify deployment outputs (firewall IPs and policy name) are shown in the terminal.
+
+5. Take your first snapshot:
+
+```powershell
+.\Backup-FirewallPolicy.ps1 -ResourceGroupName rg-fw-lab -PolicyName fw-policy-hub01
+```
+
+Optional cleanup when done:
+
+```powershell
+az group delete --name rg-fw-lab --yes --no-wait
+```
 
 ## License
 
