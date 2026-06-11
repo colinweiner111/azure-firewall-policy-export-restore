@@ -319,7 +319,7 @@ Deploys: one VNet, one Azure Firewall Premium, one Firewall Policy with network 
 .\deploy.ps1 -ResourceGroupName rg-fw-lab
 ```
 
-**Note:** `-SubscriptionId` defaults to the current Azure CLI subscription context. Passing it explicitly is optional but recommended for reliability, especially in environments with multiple subscriptions.
+**Note:** `-SubscriptionId` defaults to the current Azure subscription context (set via `az login` or `az account set`). Passing it explicitly is optional but recommended for reliability, especially in environments with multiple subscriptions.
 
 If the resource group does not exist, the script will prompt for a region when `-Location` is not provided.
 
@@ -343,10 +343,10 @@ az login
 
 3. Deploy the lab resources (with or without explicit subscription):
 
-Option A — use current Azure CLI subscription:
+Option A — use current subscription context:
 
 ```powershell
-.\deploy.ps1 -ResourceGroupName rg-fw-lab
+.\deploy.ps1 -ResourceGroupName rg-fw-lab -Location eastus
 ```
 
 Option B — use explicit subscription (recommended for multi-subscription environments):
